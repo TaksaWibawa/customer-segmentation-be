@@ -1,4 +1,4 @@
-# Retail Backend Service
+# Customer Segmentation BE
 
 ## How to Run the FastAPI Application
 
