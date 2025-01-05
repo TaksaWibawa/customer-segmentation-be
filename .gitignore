@@ -1,0 +1,6 @@
+venv/
+.env
+datasets/
+app-old/
+model-training/
+__pycache__/
