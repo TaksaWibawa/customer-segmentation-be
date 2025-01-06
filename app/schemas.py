@@ -75,7 +75,7 @@ class CustomerSchema(BaseModel):
 
 # region Membership Schemas
 class MembershipSchema(BaseModel):
-    id: UUID4
+    id: str
     customer_id: UUID4
     start_period: date
     end_period: date

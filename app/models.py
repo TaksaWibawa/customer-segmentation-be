@@ -3,6 +3,7 @@ from sqlalchemy import Column, String, Integer, ForeignKey, Enum, Date, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
+from app.utils import generate_membership_id
 import enum, uuid
 
 Base = declarative_base()
@@ -74,7 +75,7 @@ class Customer(Base):
 
 class Membership(Base):
     __tablename__ = "memberships"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String(9), primary_key=True, default=generate_membership_id)
     customer_id = Column(UUID(as_uuid=True), ForeignKey("customers.id"), nullable=False)
     start_period = Column(Date, nullable=False)
     end_period = Column(Date, nullable=False)

@@ -3,6 +3,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Any
+import random, string
 
 
 def success_response(status_code: int, message: str, data: Any):
@@ -16,3 +17,9 @@ def success_response(status_code: int, message: str, data: Any):
 
 def error_response(status_code, message):
     raise HTTPException(status_code=status_code, detail=message)
+
+
+def generate_membership_id():
+    prefix = "GSR"
+    suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
+    return f"{prefix}-{suffix}"

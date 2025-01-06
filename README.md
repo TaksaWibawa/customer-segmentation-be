@@ -435,7 +435,7 @@ alembic upgrade head
     "message": "Memberships retrieved successfully",
     "data": [
       {
-        "id": "UUID4",
+        "id": "string",
         "customer_id": "UUID4",
         "start_period": "date",
         "end_period": "date",
@@ -458,7 +458,7 @@ alembic upgrade head
     "status": "success",
     "message": "Membership found",
     "data": {
-      "id": "UUID4",
+      "id": "string",
       "customer_id": "UUID4",
       "start_period": "date",
       "end_period": "date",
@@ -477,7 +477,7 @@ alembic upgrade head
 
   ```json
   {
-    "customer_id": "UUID4",
+    "customer_id": "string",
     "start_period": "date",
     "end_period": "date",
     "tier": "TierEnum"
@@ -491,7 +491,7 @@ alembic upgrade head
     "status": "success",
     "message": "Membership created successfully",
     "data": {
-      "id": "UUID4",
+      "id": "string",
       "customer_id": "UUID4",
       "start_period": "date",
       "end_period": "date",
@@ -523,7 +523,7 @@ alembic upgrade head
     "status": "success",
     "message": "Membership updated successfully",
     "data": {
-      "id": "UUID4",
+      "id": "string",
       "customer_id": "UUID4",
       "start_period": "date",
       "end_period": "date",
