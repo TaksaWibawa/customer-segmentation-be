@@ -1,7 +1,0 @@
-.env.example
-requirements-dev.txt
-README.md
-alembic.ini
-alembic/
-**/*.pyc
-**/__pycache__/**
