@@ -13,7 +13,6 @@ from decimal import Decimal
 from datetime import datetime
 from app.schemas import *
 from app.models import *
-from app.config import config
 
 
 # region DASHBOARD
@@ -23,8 +22,8 @@ class SegmentationService:
         self.df_rfm = None
         self.segmented_data = None
         self.algorithm = None
-        self.kmeans_model: KMeans = joblib.load(f"{config.MODEL_PATH}/kmeans_model.pkl")
-        self.dbscan_model: DBSCAN = joblib.load(f"{config.MODEL_PATH}/dbscan_model.pkl")
+        # self.kmeans_model: KMeans = joblib.load(f"{config.MODEL_PATH}/kmeans_model.pkl")
+        # self.dbscan_model: DBSCAN = joblib.load(f"{config.MODEL_PATH}/dbscan_model.pkl")
 
     async def preprocess(self, start_date: datetime = None, end_date: datetime = None):
         # Query transactions within the time period
@@ -71,10 +70,8 @@ class SegmentationService:
     async def with_kmeans(self):
         if self.df_rfm is None:
             raise ValueError("Data not preprocessed. Call preprocess() first.")
-        if self.kmeans_model is None:
-            raise ValueError("KMeans model not loaded.")
 
-        self.df_rfm["Cluster"] = self.kmeans_model.predict(self.df_rfm[["Recency", "Frequency", "Monetary"]])
+        self.df_rfm["Cluster"] = KMeans(n_clusters=3, random_state=0).fit_predict(self.df_rfm[["Recency", "Frequency", "Monetary"]])
         self.assign_rfm_categories_kmeans()
         self.segmented_data = self.df_rfm.copy()
         self.algorithm = "KMeans"
@@ -82,11 +79,9 @@ class SegmentationService:
     async def with_dbscan(self):
         if self.df_rfm is None:
             raise ValueError("Data not preprocessed. Call preprocess() first.")
-        if self.dbscan_model is None:
-            raise ValueError("DBSCAN model not loaded.")
 
         rfm_scaled = StandardScaler().fit_transform(self.df_rfm[["Recency", "Frequency", "Monetary"]])
-        self.df_rfm["Cluster"] = self.dbscan_model.fit_predict(rfm_scaled)
+        self.df_rfm["Cluster"] = DBSCAN(eps=0.5, min_samples=5).fit_predict(rfm_scaled)
         self.assign_rfm_categories_dbscan()
         self.segmented_data = self.df_rfm.copy()
         self.algorithm = "DBSCAN"
@@ -183,7 +178,7 @@ class DashboardService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_dashboard_data(self, segmentation_service: SegmentationService, start_date: datetime = None, end_date: datetime = None):
+    async def get_dashboard_metrics(self, start_date: datetime = None, end_date: datetime = None):
         # Total sales
         query = select(func.sum(Transaction.total_amount))
         if start_date:
@@ -220,20 +215,19 @@ class DashboardService:
         new_memberships_result = await self.db.execute(query)
         new_memberships = new_memberships_result.scalar() or 0
 
-        # Customer segments
-        segmentation_result = await segmentation_service.result()
-        customer_segments = {
-            "algorithm": segmentation_result["algorithm"],
-            "segmentation": segmentation_result["segmentation"],
-            "evaluation": segmentation_result["evaluation"],
-        }
-
         return {
             "total_sales": total_sales,
             "total_transactions": total_transactions,
             "products_sold": products_sold,
             "new_memberships": new_memberships,
-            "customer_segments": customer_segments,
+        }
+
+    async def get_dashboard_segmentation(self, segmentation_service: SegmentationService):
+        segmentation_result = await segmentation_service.result()
+        return {
+            "algorithm": segmentation_result["algorithm"],
+            "segmentation": segmentation_result["segmentation"],
+            "evaluation": segmentation_result["evaluation"],
         }
 
 

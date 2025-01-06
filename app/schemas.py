@@ -17,7 +17,7 @@ class EmployeeSchema(BaseModel):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # endregion
@@ -29,7 +29,7 @@ class UserCreate(BaseModel):
     password: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserLogin(BaseModel):
@@ -37,7 +37,7 @@ class UserLogin(BaseModel):
     password: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserSchema(BaseModel):
@@ -48,7 +48,7 @@ class UserSchema(BaseModel):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # endregion
@@ -67,7 +67,7 @@ class CustomerSchema(BaseModel):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # endregion
@@ -84,7 +84,7 @@ class MembershipSchema(BaseModel):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
         from_attributes = True
 
 
@@ -95,7 +95,7 @@ class MembershipCreate(BaseModel):
     tier: TierEnum
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class MembershipUpdate(BaseModel):
@@ -104,7 +104,7 @@ class MembershipUpdate(BaseModel):
     tier: TierEnum
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # endregion
@@ -119,7 +119,6 @@ class ProductCategorySchema(BaseModel):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
         from_attributes = True
 
 
@@ -135,7 +134,6 @@ class ProductSchema(BaseModel):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
         from_attributes = True
 
 
@@ -147,7 +145,7 @@ class ProductCreate(BaseModel):
     price: float
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class ProductUpdate(BaseModel):
@@ -159,7 +157,7 @@ class ProductUpdate(BaseModel):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # endregion
@@ -177,7 +175,6 @@ class TransactionDetailSchema(BaseModel):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
         from_attributes = True
 
 
@@ -191,7 +188,6 @@ class TransactionSchema(BaseModel):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
         from_attributes = True
 
 
@@ -233,12 +229,11 @@ class CustomerSegmentsSchema(BaseModel):
 
 
 # region Dashboard Schemas
-class DashboardDataSchema(BaseModel):
+class MetricsSchema(BaseModel):
     total_sales: float
     total_transactions: int
     products_sold: int
     new_memberships: int
-    customer_segments: CustomerSegmentsSchema
 
 
 # endregion

@@ -46,8 +46,27 @@ async def login_user(user: UserLogin, db: AsyncSession = Depends(get_db)):
 
 
 # region DASHBOARD
-@router.get("/dashboard/", response_model=DashboardDataSchema)
-async def get_dashboard_data(
+@router.get("/dashboard/metrics", response_model=MetricsSchema)
+async def get_dashboard_metrics(
+    start_date: str = Query(None, description="Start date in YYYY-MM-DD format"),
+    end_date: str = Query(None, description="End date in YYYY-MM-DD format"),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        start_date_dt = datetime.strptime(start_date, "%Y-%m-%d") if start_date else None
+        end_date_dt = datetime.strptime(end_date, "%Y-%m-%d") if end_date else None
+
+        dashboard_service = DashboardService(db)
+        metrics = await dashboard_service.get_dashboard_metrics(start_date_dt, end_date_dt)
+        return success_response(200, "Dashboard metrics retrieved successfully", metrics)
+    except ValueError as e:
+        return error_response(400, f"Invalid date format: {str(e)}")
+    except Exception as e:
+        return error_response(500, f"An error occurred while retrieving dashboard metrics: {str(e)}")
+
+
+@router.get("/dashboard/segmentation", response_model=CustomerSegmentsSchema)
+async def get_dashboard_segmentation(
     start_date: str = Query(None, description="Start date in YYYY-MM-DD format"),
     end_date: str = Query(None, description="End date in YYYY-MM-DD format"),
     model: str = Query("kmeans", regex="^(kmeans|dbscan)$"),
@@ -67,13 +86,12 @@ async def get_dashboard_data(
         else:
             return error_response(400, "Invalid model specified. Choose either 'kmeans' or 'dbscan'.")
 
-        dashboard_service = DashboardService(db)
-        data = await dashboard_service.get_dashboard_data(segmentation_service)
-        return success_response(200, "Dashboard data retrieved successfully", data)
+        segmentation_result = await segmentation_service.result()
+        return success_response(200, "Dashboard segmentation retrieved successfully", segmentation_result)
     except ValueError as e:
         return error_response(400, f"Invalid date format: {str(e)}")
     except Exception as e:
-        return error_response(500, f"An error occurred while retrieving dashboard data: {str(e)}")
+        return error_response(500, f"An error occurred while retrieving dashboard segmentation: {str(e)}")
 
 
 # endregion

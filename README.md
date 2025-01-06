@@ -117,9 +117,31 @@ alembic upgrade head
 
 ### Dashboard
 
-#### Get Dashboard Data
+#### Get Dashboard Metrics
 
-- **URL:** `/dashboard/`
+- **URL:** `/dashboard/metrics`
+- **Method:** `GET`
+- **Query Params:**
+  - `start_date`: `YYYY-MM-DD`
+  - `end_date`: `YYYY-MM-DD`
+- **Response:**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Dashboard metrics retrieved successfully",
+    "data": {
+      "total_sales": "float",
+      "total_transactions": "int",
+      "products_sold": "int",
+      "new_memberships": "int"
+    }
+  }
+  ```
+
+#### Get Dashboard Segmentation
+
+- **URL:** `/dashboard/segmentation`
 - **Method:** `GET`
 - **Query Params:**
   - `start_date`: `YYYY-MM-DD`
@@ -130,25 +152,19 @@ alembic upgrade head
   ```json
   {
     "status": "success",
-    "message": "Dashboard data retrieved successfully",
+    "message": "Dashboard segmentation retrieved successfully",
     "data": {
-      "total_sales": "float",
-      "total_transactions": "int",
-      "products_sold": "int",
-      "new_memberships": "int",
-      "customer_segments": {
-        "algorithm": "string",
-        "segmentation": [
-          {
-            "RFMCategory": "string",
-            "count": "int",
-            "total_revenue": "float"
-          }
-        ],
-        "evaluation": {
-          "silhouette_score": "float",
-          "davies_bouldin_index": "float"
+      "algorithm": "string",
+      "segmentation": [
+        {
+          "RFMCategory": "string",
+          "count": "int",
+          "total_revenue": "float"
         }
+      ],
+      "evaluation": {
+        "silhouette_score": "float",
+        "davies_bouldin_index": "float"
       }
     }
   }
