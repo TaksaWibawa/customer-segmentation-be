@@ -8,20 +8,20 @@
   git clone https://github.com/TaksaWibawa/customer-segmentation-be.git .
   ```
 
-2.**Create and activate a virtual environment:**
+2. **Create and activate a virtual environment:**
 
   ```sh
   python -m venv venv
   source venv/bin/activate  # On Windows use `venv\Scripts\activate`
   ```
 
-3.**Install the dependencies:**
+3. **Install the dependencies:**
 
   ```sh
   pip install -r requirements.txt
   ```
 
-4.**Run the FastAPI application:**
+4. **Run the FastAPI application:**
 
   ```sh
   uvicorn main:app --reload
@@ -176,6 +176,9 @@ alembic upgrade head
 
 - **URL:** `/product-categories/`
 - **Method:** `GET`
+- **Query Params:**
+  - `limit`: `int` (default: 10)
+  - `offset`: `int` (default: 0)
 - **Response:**
 
   ```json
@@ -198,6 +201,9 @@ alembic upgrade head
 
 - **URL:** `/products/`
 - **Method:** `GET`
+- **Query Params:**
+  - `limit`: `int` (default: 10)
+  - `offset`: `int` (default: 0)
 - **Response:**
 
   ```json
@@ -337,6 +343,9 @@ alembic upgrade head
 
 - **URL:** `/transactions/`
 - **Method:** `GET`
+- **Query Params:**
+  - `limit`: `int` (default: 10)
+  - `offset`: `int` (default: 0)
 - **Response:**
 
   ```json
@@ -426,6 +435,9 @@ alembic upgrade head
 
 - **URL:** `/memberships/`
 - **Method:** `GET`
+- **Query Params:**
+  - `limit`: `int` (default: 10)
+  - `offset`: `int` (default: 0)
 - **Response:**
 
   ```json
@@ -546,3 +558,4 @@ alembic upgrade head
     "data": true
   }
   ```
+  

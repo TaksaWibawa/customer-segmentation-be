@@ -243,13 +243,13 @@ class ProductService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_product_categories(self):
-        result = await self.db.execute(select(ProductCategory))
+    async def get_product_categories(self, limit: int, offset: int):
+        result = await self.db.execute(select(ProductCategory).limit(limit).offset(offset))
         categories = result.scalars().all()
         return [ProductCategorySchema.model_validate(category) for category in categories]
 
-    async def get_products(self):
-        result = await self.db.execute(select(Product).where(Product.deleted == False))
+    async def get_products(self, limit: int, offset: int):
+        result = await self.db.execute(select(Product).where(Product.deleted == False).limit(limit).offset(offset))
         products = result.scalars().all()
         return [ProductSchema.model_validate(product) for product in products]
 
@@ -358,8 +358,8 @@ class TransactionService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_all_transactions(self):
-        result = await self.db.execute(select(Transaction).options(selectinload(Transaction.transaction_details)))
+    async def get_all_transactions(self, limit: int, offset: int):
+        result = await self.db.execute(select(Transaction).options(selectinload(Transaction.transaction_details)).limit(limit).offset(offset))
         transactions = result.scalars().all()
         return [TransactionSchema.model_validate(transaction) for transaction in transactions]
 
@@ -436,9 +436,10 @@ class MembershipService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_all_memberships(self):
-        result = await self.db.execute(select(Membership))
-        return result.scalars().all()
+    async def get_all_memberships(self, limit: int, offset: int):
+        result = await self.db.execute(select(Membership).limit(limit).offset(offset))
+        memberships = result.scalars().all()
+        return [MembershipSchema.model_validate(membership) for membership in memberships]
 
     async def get_membership(self, membership_id: UUID4):
         result = await self.db.execute(select(Membership).where(Membership.id == membership_id))

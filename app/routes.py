@@ -1,7 +1,6 @@
 import random
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import delete
 from pydantic import UUID4
 from fastapi import APIRouter, Depends, Query
 from faker import Faker
@@ -99,20 +98,28 @@ async def get_dashboard_segmentation(
 
 # region PRODUCTS
 @router.get("/product-categories/", response_model=List[ProductCategorySchema])
-async def get_product_categories(db: AsyncSession = Depends(get_db)):
+async def get_product_categories(
+    limit: int = Query(10, description="Number of records to fetch"),
+    offset: int = Query(0, description="Number of records to skip"),
+    db: AsyncSession = Depends(get_db),
+):
     try:
         service = ProductService(db)
-        categories = await service.get_product_categories()
+        categories = await service.get_product_categories(limit, offset)
         return success_response(200, "Product categories retrieved successfully", categories)
     except Exception as e:
         return error_response(500, f"An error occurred while retrieving product categories: {str(e)}")
 
 
 @router.get("/products/", response_model=List[ProductSchema])
-async def get_products(db: AsyncSession = Depends(get_db)):
+async def get_products(
+    limit: int = Query(10, description="Number of records to fetch"),
+    offset: int = Query(0, description="Number of records to skip"),
+    db: AsyncSession = Depends(get_db),
+):
     try:
         service = ProductService(db)
-        products = await service.get_products()
+        products = await service.get_products(limit, offset)
         return success_response(200, "Products retrieved successfully", products)
     except Exception as e:
         return error_response(500, f"An error occurred while retrieving products: {str(e)}")
@@ -169,10 +176,14 @@ async def delete_product(product_id: UUID4, db: AsyncSession = Depends(get_db)):
 
 # region TRANSACTIONS
 @router.get("/transactions/", response_model=List[TransactionSchema])
-async def get_all_transactions(db: AsyncSession = Depends(get_db)):
+async def get_all_transactions(
+    limit: int = Query(10, description="Number of records to fetch"),
+    offset: int = Query(0, description="Number of records to skip"),
+    db: AsyncSession = Depends(get_db),
+):
     try:
         service = TransactionService(db)
-        transactions = await service.get_all_transactions()
+        transactions = await service.get_all_transactions(limit, offset)
         return success_response(200, "Transactions retrieved successfully", transactions)
     except Exception as e:
         return error_response(500, f"An error occurred while retrieving transactions: {str(e)}")
@@ -203,10 +214,14 @@ async def create_transaction(transaction_data: TransactionCreate, db: AsyncSessi
 
 # region MEMBERSHIPS
 @router.get("/memberships/", response_model=List[MembershipSchema])
-async def get_all_memberships(db: AsyncSession = Depends(get_db)):
+async def get_all_memberships(
+    limit: int = Query(10, description="Number of records to fetch"),
+    offset: int = Query(0, description="Number of records to skip"),
+    db: AsyncSession = Depends(get_db),
+):
     try:
         service = MembershipService(db)
-        memberships = await service.get_all_memberships()
+        memberships = await service.get_all_memberships(limit, offset)
         return success_response(200, "Memberships retrieved successfully", memberships)
     except Exception as e:
         return error_response(500, f"An error occurred while retrieving memberships: {str(e)}")
@@ -256,153 +271,6 @@ async def delete_membership(membership_id: UUID4, db: AsyncSession = Depends(get
         return success_response(200, "Membership deleted successfully", deleted)
     except Exception as e:
         return error_response(500, f"An error occurred while deleting membership: {str(e)}")
-
-
-# endregion
-
-
-# region DUMMY DATA
-@router.get("/dummy/")
-async def create_dummy_data(db: AsyncSession = Depends(get_db)):
-    try:
-        # Delete existing data
-        await db.execute(delete(TransactionDetail))
-        await db.execute(delete(Transaction))
-        await db.execute(delete(Membership))
-        await db.execute(delete(Product))
-        await db.execute(delete(ProductCategory))
-        await db.execute(delete(Customer))
-        await db.commit()
-
-        # Create customers
-        customers = []
-        emails = set()
-        for _ in range(1000):
-            email = fake.unique.email()
-            while email in emails:
-                email = fake.unique.email()
-            emails.add(email)
-            customer = Customer(
-                id=fake.uuid4(),
-                name=fake.name(),
-                gender=random.choice(list(GenderEnum)),
-                age=random.randint(18, 70),
-                phone_number=fake.phone_number(),
-                email=email,
-                address=fake.address(),
-                created_at=fake.date_time_this_decade(),
-                updated_at=fake.date_time_this_decade(),
-            )
-            customers.append(customer)
-        db.add_all(customers)
-        await db.commit()
-
-        # Create product categories
-        categories = []
-        for _ in range(10):
-            category = ProductCategory(
-                id=fake.uuid4(),
-                name=fake.word(),
-                description=fake.text(),
-                created_at=fake.date_time_this_decade(),
-                updated_at=fake.date_time_this_decade(),
-            )
-            categories.append(category)
-        db.add_all(categories)
-        await db.commit()
-
-        # Create products
-        products = []
-        for _ in range(100):
-            product = Product(
-                id=fake.uuid4(),
-                category_id=random.choice(categories).id,
-                name=fake.word(),
-                description=fake.text(),
-                stock=random.randint(1, 100),
-                price=round(random.uniform(10.0, 1000.0), 2),
-                deleted=False,
-                created_at=fake.date_time_this_decade(),
-                updated_at=fake.date_time_this_decade(),
-            )
-            products.append(product)
-        db.add_all(products)
-        await db.commit()
-
-        # Create memberships
-        memberships = []
-        for customer in customers:
-            membership = Membership(
-                id=fake.uuid4(),
-                customer_id=customer.id,
-                start_period=fake.date_this_decade(),
-                end_period=fake.date_this_decade(),
-                tier=random.choice(list(TierEnum)),
-                created_at=fake.date_time_this_decade(),
-                updated_at=fake.date_time_this_decade(),
-            )
-            memberships.append(membership)
-        db.add_all(memberships)
-        await db.commit()
-
-        # Create transactions and transaction details
-        transactions = []
-        transaction_details = []
-        for _ in range(10000):
-            customer = random.choice(customers)
-            transaction = Transaction(
-                id=fake.uuid4(),
-                customer_id=customer.id,
-                membership_id=random.choice(memberships).id if random.random() > 0.5 else None,
-                date=fake.date_time_between_dates(datetime_start=datetime(2023, 1, 1), datetime_end=datetime(2024, 12, 31)),
-                total_amount=0,  # Will be updated later
-                created_at=fake.date_time_this_decade(),
-                updated_at=fake.date_time_this_decade(),
-            )
-            transactions.append(transaction)
-            num_items = random.randint(1, 10)
-            total_amount = 0
-            for _ in range(num_items):
-                product = random.choice(products)
-                quantity = random.randint(1, 5)
-                price_per_unit = product.price
-                total_amount += quantity * price_per_unit
-                transaction_detail = TransactionDetail(
-                    id=fake.uuid4(),
-                    transaction_id=transaction.id,
-                    product_id=product.id,
-                    quantity=quantity,
-                    price_per_unit=price_per_unit,
-                    total_amount=quantity * price_per_unit,
-                    created_at=fake.date_time_this_decade(),
-                    updated_at=fake.date_time_this_decade(),
-                )
-                transaction_details.append(transaction_detail)
-            transaction.total_amount = total_amount
-
-        db.add_all(transactions)
-        db.add_all(transaction_details)
-        await db.commit()
-
-        return success_response(200, "Dummy data created successfully", None)
-    except Exception as e:
-        return error_response(500, f"An error occurred while creating dummy data: {str(e)}")
-
-
-@router.get("/empty/")
-async def empty_data(db: AsyncSession = Depends(get_db)):
-    try:
-        # Delete existing data
-        await db.execute(delete(TransactionDetail))
-        await db.execute(delete(Transaction))
-        await db.execute(delete(Membership))
-        await db.execute(delete(Product))
-        await db.execute(delete(ProductCategory))
-        await db.execute(delete(Customer))
-        await db.commit()
-        return success_response(200, "Data emptied successfully", None)
-    except Exception as e:
-        return error_response(500, f"An error occurred while emptying data: {str(e)}")
 
 
 # endregion
