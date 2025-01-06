@@ -118,7 +118,7 @@ class Transaction(Base):
     __tablename__ = "transactions"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     customer_id = Column(UUID(as_uuid=True), ForeignKey("customers.id"), nullable=False)
-    membership_id = Column(UUID(as_uuid=True), ForeignKey("memberships.id"), nullable=True)
+    membership_id = Column(String(9), ForeignKey("memberships.id"), nullable=True)
     date = Column(DateTime, nullable=False)
     total_amount = Column(Numeric(10, 2), nullable=False)
     customer = relationship("Customer", back_populates="transactions")

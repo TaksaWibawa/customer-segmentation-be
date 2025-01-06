@@ -181,7 +181,7 @@ class TransactionDetailSchema(BaseModel):
 class TransactionSchema(BaseModel):
     id: UUID4
     customer_id: UUID4
-    membership_id: Optional[UUID4]
+    membership_id: Optional[str]
     date: datetime
     total_amount: float
     created_at: datetime
