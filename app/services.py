@@ -1,5 +1,5 @@
 import pandas as pd
-import joblib
+from fastapi import HTTPException
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import func
 from sqlalchemy.future import select
@@ -13,6 +13,7 @@ from decimal import Decimal
 from datetime import datetime
 from app.schemas import *
 from app.models import *
+from app.utils import error_response
 
 
 # region DASHBOARD
@@ -34,6 +35,9 @@ class SegmentationService:
             query = query.filter(Transaction.date <= end_date)
         result = await self.db.execute(query)
         transactions = result.scalars().all()
+
+        if not transactions:
+            raise HTTPException(status_code=404, detail="No transactions found.")
 
         # Convert transactions to DataFrame
         data = [
@@ -364,9 +368,35 @@ class TransactionService:
         transaction_details = result.scalars().all()
         return [TransactionDetailSchema.model_validate(detail) for detail in transaction_details]
 
+    async def create_anonymous_customer(self):
+        anonymous_customer = Customer(
+            name="Anonymous",
+            gender=GenderEnum.male,
+            age=0,
+            phone_number="0000000000",
+            email="anonymous@example.com",
+            address=None,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+        self.db.add(anonymous_customer)
+        await self.db.commit()
+        await self.db.refresh(anonymous_customer)
+        return anonymous_customer
+
     async def create_transaction(self, transaction_data: TransactionCreate):
+        if not transaction_data.membership_id:
+            anonymous_customer = await self.create_anonymous_customer()
+            customer_id = anonymous_customer.id
+        else:
+            membership = await self.db.execute(select(Membership).filter_by(id=transaction_data.membership_id))
+            membership = membership.scalars().first()
+            if not membership:
+                return error_response(404, "Membership not found.")
+            customer_id = membership.customer_id
+
         new_transaction = Transaction(
-            customer_id=transaction_data.customer_id,
+            customer_id=customer_id,
             membership_id=transaction_data.membership_id,
             date=transaction_data.date,
             total_amount=0,

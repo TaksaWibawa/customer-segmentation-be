@@ -389,4 +389,20 @@ async def create_dummy_data(db: AsyncSession = Depends(get_db)):
         return error_response(500, f"An error occurred while creating dummy data: {str(e)}")
 
 
+@router.get("/empty/")
+async def empty_data(db: AsyncSession = Depends(get_db)):
+    try:
+        # Delete existing data
+        await db.execute(delete(TransactionDetail))
+        await db.execute(delete(Transaction))
+        await db.execute(delete(Membership))
+        await db.execute(delete(Product))
+        await db.execute(delete(ProductCategory))
+        await db.execute(delete(Customer))
+        await db.commit()
+        return success_response(200, "Data emptied successfully", None)
+    except Exception as e:
+        return error_response(500, f"An error occurred while emptying data: {str(e)}")
+
+
 # endregion

@@ -198,8 +198,7 @@ class TransactionDetailCreate(BaseModel):
 
 
 class TransactionCreate(BaseModel):
-    customer_id: UUID4
-    membership_id: Optional[UUID4]
+    membership_id: Optional[str]
     date: datetime
     transaction_details: List[TransactionDetailCreate]
 

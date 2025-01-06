@@ -347,7 +347,7 @@ alembic upgrade head
       {
         "id": "UUID4",
         "customer_id": "UUID4",
-        "membership_id": "UUID4",
+        "membership_id": "string",
         "date": "datetime",
         "total_amount": "float",
         "created_at": "datetime",
@@ -390,8 +390,7 @@ alembic upgrade head
 
   ```json
   {
-    "customer_id": "UUID4",
-    "membership_id": "UUID4",
+    "membership_id": "string",
     "date": "datetime",
     "transaction_details": [
       {
@@ -412,7 +411,7 @@ alembic upgrade head
     "data": {
       "id": "UUID4",
       "customer_id": "UUID4",
-      "membership_id": "UUID4",
+      "membership_id": "string",
       "date": "datetime",
       "total_amount": "float",
       "created_at": "datetime",
