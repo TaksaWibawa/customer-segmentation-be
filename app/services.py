@@ -2,6 +2,7 @@ import pandas as pd
 from fastapi import HTTPException
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import func
+from sqlalchemy import delete
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sklearn.preprocessing import StandardScaler
@@ -14,44 +15,101 @@ from datetime import datetime
 from app.schemas import *
 from app.models import *
 from app.utils import error_response
+import pickle
+import os
 
 
 # region DASHBOARD
+CACHE_FILE = "segmentation_cache.pkl"
+
+
 class SegmentationService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.df_rfm = None
         self.segmented_data = None
         self.algorithm = None
-        # self.kmeans_model: KMeans = joblib.load(f"{config.MODEL_PATH}/kmeans_model.pkl")
-        # self.dbscan_model: DBSCAN = joblib.load(f"{config.MODEL_PATH}/dbscan_model.pkl")
 
-    async def preprocess(self, start_date: datetime = None, end_date: datetime = None):
-        # Query transactions within the time period
-        query = select(Transaction).options(selectinload(Transaction.transaction_details))
+    async def preprocess(self, start_date: datetime = None, end_date: datetime = None, num_batches: int = 20, algorithm: str = "kmeans"):
+        # Check if there are existing segmentation results for the algorithm
+        algorithm = algorithm.lower()
+        existing_results = await self.db.execute(select(SegmentationResult).where(SegmentationResult.algorithm == algorithm))
+        existing_results = existing_results.scalars().all()
+
+        if existing_results:
+            # Load existing segmentation results
+            self.segmented_data = pd.DataFrame(
+                [
+                    {
+                        "CustomerID": result.customer_id,
+                        "RFMCategory": result.rfm_category,
+                        "Cluster": result.cluster,
+                        "Recency": result.recency,
+                        "Frequency": result.frequency,
+                        "Monetary": result.monetary,
+                    }
+                    for result in existing_results
+                ]
+            )
+            self.algorithm = algorithm
+            return
+
+        all_data = []
+        start_batch = 0
+
+        # Get the total number of transactions
+        total_transactions_query = select(func.count(Transaction.id))
         if start_date:
-            query = query.filter(Transaction.date >= start_date)
+            total_transactions_query = total_transactions_query.filter(Transaction.date >= start_date)
         if end_date:
-            query = query.filter(Transaction.date <= end_date)
-        result = await self.db.execute(query)
-        transactions = result.scalars().all()
+            total_transactions_query = total_transactions_query.filter(Transaction.date <= end_date)
+        total_transactions_result = await self.db.execute(total_transactions_query)
+        total_transactions = total_transactions_result.scalar()
 
-        if not transactions:
+        # Calculate the batch size based on the total number of transactions and the desired number of batches
+        batch_size = (total_transactions + num_batches - 1) // num_batches
+
+        # Check if there is cached data
+        if os.path.exists(CACHE_FILE):
+            with open(CACHE_FILE, "rb") as f:
+                all_data = pickle.load(f)
+                start_batch = len(all_data) // batch_size
+
+        for batch_num in range(start_batch, num_batches):
+            print(f"Processing batch {batch_num + 1}/{num_batches}...")
+            print(f"Total data: {total_transactions}, Processed data: {len(all_data)}")
+            query = select(Transaction).options(selectinload(Transaction.transaction_details)).limit(batch_size).offset(batch_num * batch_size)
+            if start_date:
+                query = query.filter(Transaction.date >= start_date)
+            if end_date:
+                query = query.filter(Transaction.date <= end_date)
+            result = await self.db.execute(query)
+            transactions = result.scalars().all()
+
+            if not transactions:
+                break
+
+            data = [
+                {
+                    "CustomerID": t.customer_id,
+                    "InvoiceNo": t.id,
+                    "Quantity": td.quantity,
+                    "UnitPrice": td.price_per_unit,
+                    "Date": t.date,
+                }
+                for t in transactions
+                for td in t.transaction_details
+            ]
+            all_data.extend(data)
+
+            # Cache the intermediate results
+            with open(CACHE_FILE, "wb") as f:
+                pickle.dump(all_data, f)
+
+        if not all_data:
             raise HTTPException(status_code=404, detail="No transactions found.")
 
-        # Convert transactions to DataFrame
-        data = [
-            {
-                "CustomerID": t.customer_id,
-                "InvoiceNo": t.id,
-                "Quantity": td.quantity,
-                "UnitPrice": td.price_per_unit,
-                "Date": t.date,
-            }
-            for t in transactions
-            for td in t.transaction_details
-        ]
-        df = pd.DataFrame(data)
+        df = pd.DataFrame(all_data)
 
         # Data cleaning
         df = df[df["CustomerID"].notna()]
@@ -75,20 +133,34 @@ class SegmentationService:
         if self.df_rfm is None:
             raise ValueError("Data not preprocessed. Call preprocess() first.")
 
-        self.df_rfm["Cluster"] = KMeans(n_clusters=3, random_state=0).fit_predict(self.df_rfm[["Recency", "Frequency", "Monetary"]])
+        if len(self.df_rfm) < 3:
+            raise ValueError("Not enough data points to perform KMeans clustering.")
+
+        # Fit KMeans on the entire dataset
+        kmeans = KMeans(n_clusters=3, random_state=42)
+        self.df_rfm["Cluster"] = kmeans.fit_predict(self.df_rfm[["Recency", "Frequency", "Monetary"]])
+
         self.assign_rfm_categories_kmeans()
         self.segmented_data = self.df_rfm.copy()
-        self.algorithm = "KMeans"
+        self.algorithm = AlgorithmEnum.kmeans
+
+        await self.save_segmentation_results()
 
     async def with_dbscan(self):
         if self.df_rfm is None:
             raise ValueError("Data not preprocessed. Call preprocess() first.")
 
         rfm_scaled = StandardScaler().fit_transform(self.df_rfm[["Recency", "Frequency", "Monetary"]])
-        self.df_rfm["Cluster"] = DBSCAN(eps=0.5, min_samples=5).fit_predict(rfm_scaled)
+
+        # Fit DBSCAN on the entire dataset
+        dbscan = DBSCAN(eps=0.5, min_samples=5)
+        self.df_rfm["Cluster"] = dbscan.fit_predict(rfm_scaled)
+
         self.assign_rfm_categories_dbscan()
         self.segmented_data = self.df_rfm.copy()
-        self.algorithm = "DBSCAN"
+        self.algorithm = AlgorithmEnum.dbscan
+
+        await self.save_segmentation_results()
 
     def assign_rfm_categories_kmeans(self):
         # Define cluster labels based on RFM statistics
@@ -145,6 +217,29 @@ class SegmentationService:
 
         # Apply labels to clusters
         self.df_rfm["RFMCategory"] = self.df_rfm.apply(assign_labels, axis=1)
+
+    async def save_segmentation_results(self):
+        # Clear existing segmentation results for the current algorithm
+        await self.db.execute(delete(SegmentationResult).where(SegmentationResult.algorithm == self.algorithm))
+        await self.db.commit()
+
+        # Save new segmentation results
+        segmentation_results = [
+            SegmentationResult(
+                customer_id=row["CustomerID"],
+                rfm_category=row["RFMCategory"],
+                cluster=row["Cluster"],
+                recency=row["Recency"],
+                frequency=row["Frequency"],
+                monetary=row["Monetary"],
+                algorithm=self.algorithm,
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+            )
+            for _, row in self.df_rfm.iterrows()
+        ]
+        self.db.add_all(segmentation_results)
+        await self.db.commit()
 
     async def result(self):
         if self.segmented_data is None:
@@ -210,20 +305,16 @@ class DashboardService:
         products_sold_result = await self.db.execute(query)
         products_sold = products_sold_result.scalar() or 0
 
-        # New memberships
+        # Total memberships
         query = select(func.count(Membership.id))
-        if start_date:
-            query = query.filter(Membership.start_period >= start_date)
-        if end_date:
-            query = query.filter(Membership.start_period <= end_date)
-        new_memberships_result = await self.db.execute(query)
-        new_memberships = new_memberships_result.scalar() or 0
+        total_memberships_result = await self.db.execute(query)
+        total_memberships = total_memberships_result.scalar() or 0
 
         return {
             "total_sales": total_sales,
             "total_transactions": total_transactions,
             "products_sold": products_sold,
-            "new_memberships": new_memberships,
+            "total_memberships": total_memberships,
         }
 
     async def get_dashboard_segmentation(self, segmentation_service: SegmentationService):
@@ -436,14 +527,25 @@ class MembershipService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_all_memberships(self, limit: int, offset: int):
-        result = await self.db.execute(select(Membership).limit(limit).offset(offset))
-        memberships = result.scalars().all()
-        return [MembershipSchema.model_validate(membership) for membership in memberships]
 
-    async def get_membership(self, membership_id: UUID4):
-        result = await self.db.execute(select(Membership).where(Membership.id == membership_id))
-        return result.scalar_one_or_none()
+class MembershipService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def get_all_memberships(self, limit: int, offset: int):
+        result = await self.db.execute(select(Membership, Customer.name).join(Customer, Membership.customer_id == Customer.id).limit(limit).offset(offset))
+        memberships = result.all()
+        return [{**MembershipSchema.model_validate(membership).model_dump(), "name": customer_name} for membership, customer_name in memberships]
+
+    async def get_membership(self, membership_id: str):
+        result = await self.db.execute(
+            select(Membership, Customer.name).join(Customer, Membership.customer_id == Customer.id).where(Membership.id == membership_id)
+        )
+        membership_data = result.first()
+        if membership_data:
+            membership, customer_name = membership_data
+            return {**MembershipSchema.model_validate(membership).model_dump(), "name": customer_name}
+        return None
 
     async def create_membership(self, membership_data: MembershipCreate):
         new_membership = Membership(
@@ -480,6 +582,8 @@ class MembershipService:
             return True
         return False
 
+
+# endregion
 
 # region CUSTOMER
 

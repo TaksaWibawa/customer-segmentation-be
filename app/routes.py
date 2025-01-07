@@ -76,7 +76,7 @@ async def get_dashboard_segmentation(
         end_date_dt = datetime.strptime(end_date, "%Y-%m-%d") if end_date else None
 
         segmentation_service = SegmentationService(db)
-        await segmentation_service.preprocess(start_date_dt, end_date_dt)
+        await segmentation_service.preprocess(start_date=start_date_dt, end_date=end_date_dt, algorithm=model)
 
         if model == "kmeans":
             await segmentation_service.with_kmeans()

@@ -36,6 +36,11 @@ class RFMCategoryEnum(str, enum.Enum):
     noise = "Noise"
 
 
+class AlgorithmEnum(enum.Enum):
+    kmeans = "kmeans"
+    dbscan = "dbscan"
+
+
 # Models
 class Employee(Base):
     __tablename__ = "employees"
@@ -147,3 +152,22 @@ class TransactionDetail(Base):
 
 Transaction.transaction_details = relationship("TransactionDetail", back_populates="transaction")
 Product.transaction_details = relationship("TransactionDetail", back_populates="product")
+
+
+class SegmentationResult(Base):
+    __tablename__ = "segmentation_results"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    customer_id = Column(UUID(as_uuid=True), ForeignKey("customers.id"), nullable=False)
+    rfm_category = Column(String, nullable=False)
+    cluster = Column(Integer, nullable=False)
+    recency = Column(Integer, nullable=False)
+    frequency = Column(Integer, nullable=False)
+    monetary = Column(Numeric(10, 2), nullable=False)
+    algorithm = Column(Enum(AlgorithmEnum), nullable=False)
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+
+    customer = relationship("Customer", back_populates="segmentation_results")
+
+
+Customer.segmentation_results = relationship("SegmentationResult", back_populates="customer")
